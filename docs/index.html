@@ -2,23 +2,60 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Informes diarios</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Coparticipación – Informes diarios</title>
   <style>
-    body{font-family:system-ui,Arial,sans-serif;max-width:900px;margin:40px auto;padding:0 16px}
-    h1{margin-bottom:6px}
-    small{color:#666}
-    ul{line-height:1.8}
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; color:#222; }
+    h1 { margin: 0 0 8px 0; font-size: 1.6rem; }
+    p  { margin: 0 0 16px 0; color:#444; }
+    table { width:100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px 8px; border-bottom: 1px solid #eee; text-align: left; }
+    th { background:#fafafa; }
+    a { color:#0b5ed7; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    footer { margin-top: 24px; font-size:.9rem; color:#666; }
   </style>
 </head>
 <body>
-  <h1>Informes diarios</h1>
-  <small>Repositorio: coparticipacion</small>
-  <p>Seleccioná un día:</p>
-  <ul>
-    <li><a href="informe_2025-11-11.pdf">Informe 2025-11-11</a></li>
-    <li><a href="informe_2025-11-10.pdf">Informe 2025-11-10</a></li>
-    <!-- Agregá nuevas líneas cada día -->
-  </ul>
+  <h1>Coparticipación – Informes diarios</h1>
+  <p>Archivos en <code>/docs/informes/</code>. Subí un PDF nuevo y se lista solo.</p>
+
+  <table id="tbl">
+    <thead>
+      <tr><th>Fecha</th><th>Archivo</th><th>Tamaño</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <footer>Última actualización: <span id="updated"></span></footer>
+
+  <script>
+    const OWNER = "ramirojorge1990-sys";
+    const REPO  = "coparticipacion";
+    const PATH  = "docs/informes"; // carpeta donde subís los PDFs
+
+    const api = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH}`;
+    const raw = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/${PATH}/`;
+
+    function niceBytes(b){if(b==null)return"";const k=1024,s=['B','KB','MB','GB'];let i=Math.floor(Math.log(b)/Math.log(k));i=Math.max(0,Math.min(i,s.length-1));return (b/Math.pow(k,i)).toFixed(i?1:0)+' '+s[i];}
+    function dateFromName(n){const m=n.match(/(\d{4})[-_.](\d{2})[-_.](\d{2})/);return m?`${m[1]}-${m[2]}-${m[3]}`:"—";}
+
+    fetch(api).then(r=>r.json()).then(items=>{
+      const files = items.filter(i=>i.type==="file" && /\.(pdf|png|jpg|jpeg)$/i.test(i.name))
+                         .sort((a,b)=> (b.name).localeCompare(a.name)); // orden desc por nombre
+      const tb = document.querySelector("#tbl tbody");
+      files.forEach(f=>{
+        const tr=document.createElement("tr");
+        tr.innerHTML = `<td>${dateFromName(f.name)}</td>
+                        <td><a href="${raw+encodeURIComponent(f.name)}" target="_blank">${f.name}</a></td>
+                        <td>${niceBytes(f.size)}</td>`;
+        tb.appendChild(tr);
+      });
+      document.getElementById("updated").textContent = new Date().toLocaleString();
+    }).catch(e=>{
+      document.querySelector("#tbl tbody").innerHTML =
+        `<tr><td colspan="3">No se pudieron cargar los archivos (${e.message}).</td></tr>`;
+    });
+  </script>
 </body>
 </html>
