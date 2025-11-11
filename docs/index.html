@@ -45,7 +45,7 @@ title: Informe Diario - Dirección General de Crédito Público
       {%- for f in files_all -%}
         <tr>
           <td>{{ f.modified_time | date: "%d/%m/%Y %H:%M" }}</td>
-          <td><a href="{{ f.path | relative_url }}">{{ f.name }}</a></td>
+          <td><a href="{{ f.path | relative_url | url_encode }}">{{ f.name }}</a></td>
           <td class="right">
             {%- if f.size -%}{{ f.size | divided_by: 1024.0 | round: 1 }} KB{%- endif -%}
           </td>
