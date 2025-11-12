@@ -1,59 +1,131 @@
----
-layout: none
-title: Informe Diario - Dirección General de Crédito Público
----
-
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <title>{{ page.title }}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Informe Diario - Dirección General de Crédito Público</title>
   <style>
-    body{font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;color:#111;margin:24px}
-    h1{font-size:26px;margin:0 0 16px}
-    .muted{color:#6b7280}
-    table{width:100%;border-collapse:collapse;margin-top:12px}
-    th,td{padding:10px 12px;border-top:1px solid #eee;vertical-align:middle}
-    th{background:#fafafa;text-align:left;font-weight:600}
-    a{color:#2563eb;text-decoration:none} a:hover{text-decoration:underline}
-    .right{text-align:right}
-    footer{margin-top:18px;color:#6b7280;font-size:14px}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Helvetica,Arial,sans-serif;margin:24px;color:#111}
+    h1{font-size:28px;margin:0 0 18px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:12px;border-bottom:1px solid #eee;text-align:left}
+    th{background:#fafafa}
+    a{color:#0a58ca;text-decoration:none}
+    a:hover{text-decoration:underline}
+    .muted{color:#666;font-size:12px;margin-top:12px}
+    .size{white-space:nowrap}
   </style>
 </head>
 <body>
+  <h1>Informe Diario - Dirección General de Crédito Público</h1>
 
-  <h1>{{ page.title }}</h1>
-
-  {%- comment -%}
-    Listamos los archivos estáticos bajo /docs/informes/
-    y usamos modified_time (fecha del último commit del archivo).
-  {%- endcomment -%}
-  {%- assign files_all = site.static_files
-        | where_exp:'f','f.path contains "/informes/"'
-        | sort: 'modified_time' | reverse -%}
-
-  <table>
+  <table id="tbl">
     <thead>
       <tr>
-        <th style="width:160px">Fecha</th>
+        <th style="width:220px">Fecha</th>
         <th>Archivo</th>
-        <th class="right" style="width:120px">Tamaño</th>
+        <th class="size" style="width:110px">Tamaño</th>
       </tr>
     </thead>
-    <tbody>
-      {%- for f in files_all -%}
-        <tr>
-          <td>{{ f.modified_time | date: "%d/%m/%Y %H:%M" }}</td>
-          <td><a href="{{ f.path | relative_url | url_encode }}">{{ f.name }}</a></td>
-          <td class="right">
-            {%- if f.size -%}{{ f.size | divided_by: 1024.0 | round: 1 }} KB{%- endif -%}
-          </td>
-        </tr>
-      {%- endfor -%}
+    <tbody id="tbody">
+      <tr><td colspan="3" class="muted">Cargando…</td></tr>
     </tbody>
   </table>
 
-  <footer>Última actualización: {{ site.time | date: "%d/%m/%Y, %H:%M" }}</footer>
+  <p class="muted" id="stamp"></p>
+
+  <script>
+    // === Config ===
+    const FOLDER = 'informes'; // dentro de /docs
+
+    // Base del sitio (incluye /<usuario>.github.io/<repo>/)
+    const basePath = (function () {
+      // p.ej: /coparticipacion/  ->  /coparticipacion/informes/
+      const p = window.location.pathname.replace(/index\.html$/,'');
+      return p.replace(/\/+$/,'') + '/' + FOLDER + '/';
+    })();
+
+    // Utilidades
+    const fmtSize = bytes => {
+      if (bytes == null) return '';
+      const kb = bytes / 1024;
+      return (Math.round(kb * 10) / 10).toLocaleString('es-AR') + ' KB';
+    };
+    const fmtDateTime = iso => {
+      const d = new Date(iso);
+      return d.toLocaleString('es-AR', { timeZone: 'UTC', hour12: false }).replace(',', '');
+    };
+
+    // Render
+    function render(rows) {
+      const tb = document.getElementById('tbody');
+      tb.innerHTML = '';
+      if (!rows.length) {
+        tb.innerHTML = '<tr><td colspan="3" class="muted">No hay archivos todavía.</td></tr>';
+        return;
+      }
+      rows.forEach(f => {
+        const tr = document.createElement('tr');
+
+        const tdDate = document.createElement('td');
+        tdDate.textContent = fmtDateTime(f.lastmod || f.date || f.time || f.mtime || f.updated || f.created || f.ts);
+        tr.appendChild(tdDate);
+
+        const tdName = document.createElement('td');
+        // IMPORTANTÍSIMO: codificar el nombre del archivo para acentos/espacios
+        const href = basePath + encodeURIComponent(f.name);
+        const a = document.createElement('a');
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = f.name;
+        tdName.appendChild(a);
+        tr.appendChild(tdName);
+
+        const tdSize = document.createElement('td');
+        tdSize.className = 'size';
+        tdSize.textContent = fmtSize(f.size);
+        tr.appendChild(tdSize);
+
+        tb.appendChild(tr);
+      });
+      document.getElementById('stamp').textContent =
+        'Última actualización: ' +
+        new Date().toLocaleString('es-AR', { hour12: false });
+    }
+
+    // Cargar listado desde la API de GitHub (pública)
+    // Ajustá <USER> y <REPO> si renombrás el repo
+    const USER = 'ramirojorge1990-sys';
+    const REPO = 'coparticipacion';
+
+    async function load() {
+      try {
+        // Contenido del folder docs/informes vía API:
+        const url = `https://api.github.com/repos/${USER}/${REPO}/contents/docs/${FOLDER}`;
+        const resp = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' } });
+        if (!resp.ok) throw new Error('No se pudo leer el listado (' + resp.status + ')');
+        const data = await resp.json();
+
+        // La API da name, size, sha, path, url, download_url. No trae fecha de commit,
+        // pero podemos ordenarlos por nombre si vienen con fecha en el nombre.
+        // Si querés fecha real de subida, se puede pedir via commits API por cada archivo;
+        // para mantenerlo simple, mostramos la fecha "ahora" como proxy visual.
+        // Si querés fecha real, decime y te paso la versión con commits (un poco más lenta).
+        const nowISO = new Date().toISOString();
+        const rows = (data || [])
+          .filter(x => x.type === 'file' && /\.pdf$/i.test(x.name))
+          .map(x => ({ name: x.name, size: x.size, lastmod: nowISO }))
+          .sort((a, b) => a.name < b.name ? 1 : -1); // más nuevos arriba si el nombre tiene fecha
+
+        render(rows);
+      } catch (e) {
+        console.error(e);
+        document.getElementById('tbody').innerHTML =
+          '<tr><td colspan="3" class="muted">Error al cargar el listado.</td></tr>';
+      }
+    }
+    load();
+  </script>
 </body>
 </html>
