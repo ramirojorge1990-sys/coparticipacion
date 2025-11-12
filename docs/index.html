@@ -37,26 +37,36 @@
   <script>
     // === Config ===
     const FOLDER = 'informes'; // dentro de /docs
+    const USER   = 'ramirojorge1990-sys';
+    const REPO   = 'coparticipacion';
+
+    // Zona horaria de Santa Fe (UTC-3)
+    const AR_TZ = 'America/Argentina/Cordoba';
 
     // Base del sitio (incluye /<usuario>.github.io/<repo>/)
     const basePath = (function () {
-      // p.ej: /coparticipacion/  ->  /coparticipacion/informes/
       const p = window.location.pathname.replace(/index\.html$/,'');
       return p.replace(/\/+$/,'') + '/' + FOLDER + '/';
     })();
 
-    // Utilidades
+    // ---- Utilidades de formato ----
     const fmtSize = bytes => {
       if (bytes == null) return '';
       const kb = bytes / 1024;
       return (Math.round(kb * 10) / 10).toLocaleString('es-AR') + ' KB';
     };
+
     const fmtDateTime = iso => {
       const d = new Date(iso);
-      return d.toLocaleString('es-AR', { timeZone: 'UTC', hour12: false }).replace(',', '');
+      return d.toLocaleString('es-AR', {
+        timeZone: AR_TZ,
+        hour12: false,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+      });
     };
 
-    // Render
+    // ---- Render ----
     function render(rows) {
       const tb = document.getElementById('tbody');
       tb.innerHTML = '';
@@ -72,12 +82,9 @@
         tr.appendChild(tdDate);
 
         const tdName = document.createElement('td');
-        // IMPORTANTÍSIMO: codificar el nombre del archivo para acentos/espacios
-        const href = basePath + encodeURIComponent(f.name);
+        const href = basePath + encodeURIComponent(f.name); // soporta tildes/espacios
         const a = document.createElement('a');
-        a.href = href;
-        a.target = '_blank';
-        a.rel = 'noopener';
+        a.href = href; a.target = '_blank'; a.rel = 'noopener';
         a.textContent = f.name;
         tdName.appendChild(a);
         tr.appendChild(tdName);
@@ -89,34 +96,33 @@
 
         tb.appendChild(tr);
       });
+
+      // Sello de tiempo en hora de Santa Fe
       document.getElementById('stamp').textContent =
-        'Última actualización: ' +
-        new Date().toLocaleString('es-AR', { hour12: false });
+        'Última actualización: ' + new Date().toLocaleString('es-AR', {
+          timeZone: AR_TZ,
+          hour12: false,
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit'
+        });
     }
 
-    // Cargar listado desde la API de GitHub (pública)
-    // Ajustá <USER> y <REPO> si renombrás el repo
-    const USER = 'ramirojorge1990-sys';
-    const REPO = 'coparticipacion';
-
+    // ---- Carga desde la API pública de GitHub ----
     async function load() {
       try {
-        // Contenido del folder docs/informes vía API:
         const url = `https://api.github.com/repos/${USER}/${REPO}/contents/docs/${FOLDER}`;
         const resp = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' } });
         if (!resp.ok) throw new Error('No se pudo leer el listado (' + resp.status + ')');
         const data = await resp.json();
 
-        // La API da name, size, sha, path, url, download_url. No trae fecha de commit,
-        // pero podemos ordenarlos por nombre si vienen con fecha en el nombre.
-        // Si querés fecha real de subida, se puede pedir via commits API por cada archivo;
-        // para mantenerlo simple, mostramos la fecha "ahora" como proxy visual.
-        // Si querés fecha real, decime y te paso la versión con commits (un poco más lenta).
+        // Nota: para simplicidad usamos el "ahora" como fecha visible.
+        // Si querés la fecha real de commit de cada archivo, decime y
+        // te paso la versión que consulta la commits API.
         const nowISO = new Date().toISOString();
         const rows = (data || [])
           .filter(x => x.type === 'file' && /\.pdf$/i.test(x.name))
           .map(x => ({ name: x.name, size: x.size, lastmod: nowISO }))
-          .sort((a, b) => a.name < b.name ? 1 : -1); // más nuevos arriba si el nombre tiene fecha
+          .sort((a, b) => a.name < b.name ? 1 : -1); // suponiendo fecha en el nombre
 
         render(rows);
       } catch (e) {
@@ -125,6 +131,7 @@
           '<tr><td colspan="3" class="muted">Error al cargar el listado.</td></tr>';
       }
     }
+
     load();
   </script>
 </body>
